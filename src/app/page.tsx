@@ -1,57 +1,87 @@
 'use client'
 
-import { useState } from 'react'
-import { AskForm } from '@/components/AskForm'
-import { Evidence } from '@/components/Evidence'
-import { UploadPanel } from '@/components/UploadPanel'
-import { postJson } from '@/lib/client'
-import type { AnswerResult } from '@/types'
+import { useEffect, useRef, useState } from 'react'
+import { Composer } from '@/components/Composer'
+import { Library } from '@/components/Library'
+import { MessageView } from '@/components/MessageView'
+import { CONTEXT_TURNS, useChat } from '@/lib/useChat'
+
+const STARTERS = ['Summarise this document in five points', 'What are the key dates and numbers?', 'What skills and tools are mentioned?']
 
 export default function Home() {
-  const [result, setResult] = useState<AnswerResult | null>(null)
-  const [error, setError] = useState('')
-  const [busy, setBusy] = useState(false)
+  const { messages, busy, ask, clear } = useChat()
+  const [docCount, setDocCount] = useState<number | null>(null)
+  const [libraryOpen, setLibraryOpen] = useState(false)
+  const end = useRef<HTMLDivElement>(null)
 
-  async function ask(question: string) {
-    setBusy(true)
-    setError('')
-    setResult(null)
-    try {
-      setResult(await postJson<AnswerResult>('/api/chat', { question }))
-    } catch (err) {
-      setError((err as Error).message)
-    } finally {
-      setBusy(false)
-    }
-  }
+  useEffect(() => {
+    end.current?.scrollIntoView({ behavior: 'smooth', block: 'end' })
+  }, [messages])
+
+  const remembered = Math.min(CONTEXT_TURNS, messages.filter((m) => m.result && !m.result.emptyLibrary).length)
 
   return (
-    <main className='shell'>
-      <aside className='stack'>
-        <div className='panel'>
-          <h1>Ask your documents</h1>
-          <p className='muted'>
-            Every question is matched two ways, by exact words and by meaning, then answered by an LLM on Groq
-            using only what was found.
-          </p>
+    <div className='app'>
+      <aside className={`sidebar ${libraryOpen ? 'open' : ''}`}>
+        <div className='brand'>
+          <span className='mark' aria-hidden='true' />
+          <div>
+            <h1>Ask your documents</h1>
+            <p className='muted small'>Hybrid search, answered on Groq</p>
+          </div>
         </div>
-        <UploadPanel />
+        <Library onChange={setDocCount} />
+        <p className='muted small foot'>
+          Each question is matched by exact words and by meaning, the two rankings are fused, and the answer is written
+          from those passages only.
+        </p>
       </aside>
 
-      <div className='stack'>
-        <AskForm busy={busy} onAsk={ask} />
-        {error && <p className='panel error'>{error}</p>}
-        {result && (
-          <section className='panel'>
-            <h2>Answer</h2>
-            <p className='answer'>{result.answer}</p>
-            <p className='muted' style={{ marginTop: 12 }}>
-              Retrieval {result.timing.retrievalMs} ms, reasoning {result.timing.llmMs} ms
-            </p>
-          </section>
-        )}
-        {result && result.sources.length > 0 && <Evidence hits={result.sources} />}
-      </div>
-    </main>
+      <main className='chat'>
+        <header className='chat-head'>
+          <button type='button' className='quiet only-narrow' onClick={() => setLibraryOpen((v) => !v)} aria-expanded={libraryOpen}>
+            Library{docCount !== null ? ` (${docCount})` : ''}
+          </button>
+          <span className='muted small'>
+            {remembered > 0
+              ? `Remembering the last ${remembered} ${remembered === 1 ? 'exchange' : 'exchanges'}`
+              : `Follow-ups use the last ${CONTEXT_TURNS} exchanges`}
+          </span>
+          <button type='button' className='quiet' onClick={clear} disabled={busy || messages.length === 0}>
+            New chat
+          </button>
+        </header>
+
+        <div className='thread'>
+          {messages.length === 0 ? (
+            <div className='empty'>
+              <h2>What would you like to know?</h2>
+              <p className='muted'>
+                {docCount === 0
+                  ? 'Your library is empty. Add a document first, then ask anything about it.'
+                  : 'Ask a question, then keep going with follow-ups. Every answer shows the passages it came from.'}
+              </p>
+              {docCount !== 0 && (
+                <div className='starters'>
+                  {STARTERS.map((text) => (
+                    <button key={text} type='button' className='chip' onClick={() => ask(text)} disabled={busy}>
+                      {text}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          ) : (
+            messages.map((message) => <MessageView key={message.id} message={message} />)
+          )}
+          <div ref={end} />
+        </div>
+
+        <div className='dock'>
+          <Composer busy={busy} onAsk={ask} />
+          <p className='muted small hint'>Enter to send, Shift+Enter for a new line</p>
+        </div>
+      </main>
+    </div>
   )
 }
