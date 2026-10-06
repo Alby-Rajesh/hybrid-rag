@@ -156,6 +156,9 @@ button.icon:hover:not(:disabled) { color: var(--danger); filter: none; }
 .upload { margin-top: 14px; padding-top: 4px; border-top: 1px solid var(--rule); }
 .upload .muted { margin-top: 6px; }
 .status { margin-top: 10px; overflow-wrap: anywhere; }
+.owner { margin-top: 16px; font-size: 0.84rem; color: var(--muted); }
+.owner summary { cursor: pointer; }
+.docs li:not(:has(button)) { grid-template-columns: minmax(0, 1fr) auto; padding-right: 10px; }
 
 /* Empty state */
 .empty { text-align: center; padding: 12vh 0 0; }

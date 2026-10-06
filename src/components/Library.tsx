@@ -52,7 +52,7 @@ export function Library({ onChange }: { onChange?: (count: number) => void }) {
     try {
       const { ingested } = await request<IngestResult>('/api/ingest', {
         method: 'POST',
-        headers: { 'x-admin-key': adminKey },
+        headers: adminKey ? { 'x-admin-key': adminKey } : undefined,
         body,
       })
       const empty = ingested.filter((r) => r.chunks === 0).map((r) => r.file)
@@ -99,9 +99,11 @@ export function Library({ onChange }: { onChange?: (count: number) => void }) {
             <li key={doc.source}>
               <span className='doc-name' title={doc.source}>{doc.source}</span>
               <span className='muted small'>{doc.chunks}</span>
-              <button type='button' className='icon' disabled={busy} onClick={() => remove(doc.source)} aria-label={`Remove ${doc.source}`} title='Remove (needs admin key)'>
-                ×
-              </button>
+              {adminKey && (
+                <button type='button' className='icon' disabled={busy} onClick={() => remove(doc.source)} aria-label={`Remove ${doc.source}`} title='Remove'>
+                  ×
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -110,13 +112,17 @@ export function Library({ onChange }: { onChange?: (count: number) => void }) {
       <div className='upload'>
         <label htmlFor='files'>Add documents</label>
         <input key={inputKey} id='files' type='file' multiple accept={ACCEPTED_TYPES} onChange={(e) => setFiles([...(e.target.files ?? [])])} />
-        <p className='muted small'>PDF, TXT, MD, CSV or JSON, up to about 4 MB per upload.</p>
-        <label htmlFor='admin-key'>Admin key</label>
-        <input id='admin-key' type='password' autoComplete='off' value={adminKey} onChange={(e) => rememberKey(e.target.value)} />
+        <p className='muted small'>PDF, TXT, MD, CSV or JSON. Up to 3 files, 4 MB each. No sign-in needed.</p>
         <button type='button' className='wide' onClick={upload} disabled={busy}>
           {busy ? 'Working…' : 'Add to library'}
         </button>
         {status && <p className={`small status ${status.bad ? 'error' : 'ok'}`} role='status'>{status.text}</p>}
+        <details className='owner'>
+          <summary>Owner tools</summary>
+          <label htmlFor='admin-key'>Admin key</label>
+          <input id='admin-key' type='password' autoComplete='off' value={adminKey} onChange={(e) => rememberKey(e.target.value)} />
+          <p className='muted small'>Enter the key to remove documents from the library.</p>
+        </details>
       </div>
     </section>
   )

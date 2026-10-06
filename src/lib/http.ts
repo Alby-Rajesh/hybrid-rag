@@ -21,9 +21,15 @@ export const route =
     }
   }
 
-export function requireAdmin(req: Request) {
+/** True when the request carries the admin key. Always false if no ADMIN_KEY is configured. */
+export function isAdmin(req: Request) {
   const key = process.env.ADMIN_KEY
-  if (key && req.headers.get('x-admin-key') !== key) throw new HttpError(401, 'Wrong or missing admin key')
+  return Boolean(key) && req.headers.get('x-admin-key') === key
+}
+
+export function requireAdmin(req: Request) {
+  if (!process.env.ADMIN_KEY) throw new HttpError(403, 'Removing documents is disabled: no ADMIN_KEY is configured')
+  if (!isAdmin(req)) throw new HttpError(401, 'Wrong or missing admin key')
 }
 
 export async function readFields<K extends string>(req: Request, ...keys: K[]) {
